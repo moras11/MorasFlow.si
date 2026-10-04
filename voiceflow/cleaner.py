@@ -35,6 +35,18 @@ def tidy(text):
     return re.sub(r"[ \t]+$", "", text.translate(ODD_CHARS), flags=re.MULTILINE)
 
 
+def describe(error):
+    """The API's own short message where there is one. Never str(error) for SDK errors: that includes the raw
+    response body, which can quote model output built from the dictation (e.g. Groq's failed_generation),
+    and dictated text must never reach the log."""
+    if not hasattr(error, "status_code"):  # not an HTTP error response (ours, timeouts): the message is safe
+        return str(error) or type(error).__name__
+    body = getattr(error, "body", None)
+    detail = body.get("error", body) if isinstance(body, dict) else None
+    message = detail.get("message") if isinstance(detail, dict) else None
+    return f"{error.status_code} {message or type(error).__name__}"
+
+
 def remove_em_dashes(text):
     """Safety net: no em dashes, ever. One ending a line becomes a full stop, any other a comma."""
     text = re.sub(r"[ \t]*—[ \t]*$", ".", text, flags=re.MULTILINE)
@@ -64,7 +76,7 @@ class Cleaner:
                 text = self._complete(f"{DEFAULT_PROMPT} {MODES[mode]}".strip(), text) or text
             except Exception as e:
                 self.last_error = e
-                logging.getLogger("voiceflow").warning("Cleanup failed, pasting raw transcript: %s", e)
+                logging.getLogger("voiceflow").warning("Cleanup failed, pasting raw transcript: %s", describe(e))
         return remove_em_dashes(tidy(text))
 
     def _complete(self, prompt, text):

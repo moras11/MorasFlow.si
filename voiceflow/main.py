@@ -13,7 +13,7 @@ import yaml
 from dotenv import load_dotenv
 
 import history
-from cleaner import MODES, Cleaner
+from cleaner import MODES, Cleaner, describe
 from paster import paste
 from recorder import SAMPLE_RATE, TAIL_SECONDS, Recorder
 from transcriber import Transcriber
@@ -111,14 +111,6 @@ def held_keys():
         return f"unknown ({e!r})"
 
 
-def describe(error):
-    """The API's own message where there is one: the SDKs' str() includes raw JSON."""
-    body = getattr(error, "body", None)
-    detail = body.get("error", body) if isinstance(body, dict) else None
-    message = detail.get("message") if isinstance(detail, dict) else None
-    return message or str(error) or type(error).__name__
-
-
 def report(part, error, consequence):
     """Notify on a part's first failure, then stay quiet until it has worked again (no toast per dictation)."""
     if error is None:
@@ -165,6 +157,8 @@ def dictate():
             log.info("No speech in %.1fs of audio", seconds)
             return
         latency_ms = round((time.perf_counter() - released) * 1000)
+        if config["history"]["enabled"]:  # before pasting: a failed paste must not lose the dictation
+            history.save(history_path, mode, raw, text, latency_ms)
         beep("paste")
         target, held = foreground_app(), held_keys()  # captured just before Ctrl+V is sent
         stale = paste(text, target)
@@ -173,15 +167,16 @@ def dictate():
         log.info("Pasted %d chars into %s (held: %s, stale in target: %s, focus during hold: %s): "
                  "%.1fs audio, %s mode, %d ms release to paste", len(text), target, held,
                  "+".join(stale) or "none", focus, seconds, mode, latency_ms)
+        report("dictation", None, "")
         if config["history"]["enabled"]:
-            history.save(history_path, mode, raw, text, latency_ms)
-            tray.refresh()  # so "Recent dictations" includes this one
-    except Exception:
+            tray.refresh()  # so "Copy recent dictation" includes this one
+    except Exception as e:
         log.exception("Dictation failed")
         beep("error")
+        report("dictation", e, "Dictation failed (if it was transcribed, it's in History)")
     finally:
+        busy.release()  # first: nothing below may leave the hotkey dead
         tray.set_state("idle")
-        busy.release()
 
 
 def on_hotkey():
@@ -202,6 +197,8 @@ if __name__ == "__main__":
         config = yaml.safe_load((HERE / "config.yaml").read_text(encoding="utf-8"))
         history_path = HERE / config["history"]["path"]
         state = SimpleNamespace(mode=config["default_mode"], cleanup=config["cleanup"]["enabled"], paused=False)
+        if state.mode not in MODES:  # caught here, not on every dictation
+            raise RuntimeError(f"default_mode '{state.mode}' in config.yaml must be one of: {', '.join(MODES)}")
         log.info("Starting, loading speech model")
         t, c = config["transcription"], config["cleanup"]
         transcriber = Transcriber(t["backend"], t["model"], t["device"])

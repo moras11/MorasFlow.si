@@ -47,8 +47,12 @@ class Tray:
             state.cleanup = not state.cleanup
 
         def toggle_pause():
+            try:  # the mic first: if it can't restart, the menu must not claim we're listening
+                on_pause(not state.paused)
+            except Exception as e:
+                self.notify(f"Couldn't {'resume' if state.paused else 'pause'} listening: {e}"[:250])
+                return
             state.paused = not state.paused
-            on_pause(state.paused)
 
         item = pystray.MenuItem
 

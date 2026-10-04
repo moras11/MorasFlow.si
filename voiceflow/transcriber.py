@@ -11,6 +11,8 @@ import yaml
 from faster_whisper import WhisperModel
 from faster_whisper.vad import get_speech_timestamps
 
+from cleaner import describe
+
 HERE = Path(__file__).parent
 DEFAULT_MODELS = {"local": "small.en", "groq": "whisper-large-v3-turbo", "openai": "whisper-1"}
 CLOUD = {"groq": ("https://api.groq.com/openai/v1", "GROQ_API_KEY"), "openai": (None, "OPENAI_API_KEY")}
@@ -77,7 +79,7 @@ class Transcriber:
                 return self._fix(self._transcribe_cloud(audio))
             except Exception as e:
                 self.last_error = e
-                logging.getLogger("voiceflow").warning("Cloud transcription failed, using local Whisper: %s", e)
+                logging.getLogger("voiceflow").warning("Cloud transcription failed, using local Whisper: %s", describe(e))
         return self._fix(self._transcribe_local(audio))
 
     def _transcribe_cloud(self, audio):
