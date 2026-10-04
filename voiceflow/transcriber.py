@@ -64,12 +64,12 @@ class Transcriber:
             # No retries: on failure we fall back to local Whisper rather than keep the user waiting.
             self._client = openai.OpenAI(base_url=base_url, api_key=os.environ[key_var], timeout=10, max_retries=0)
         vocab = HERE / "vocab.txt"  # personal, not in git; setup.bat creates it from vocab.example.txt
-        lines = vocab.read_text(encoding="utf-8").splitlines() if vocab.exists() else []
+        lines = vocab.read_text(encoding="utf-8-sig").splitlines() if vocab.exists() else []
         terms = [t.strip() for t in lines if t.strip() and not t.lstrip().startswith("#")]
         # Whisper mimics the prompt's style, so a punctuated list keeps punctuation in the output.
         # Only the last ~220 tokens are used, roughly 70 terms.
         self._prompt = ", ".join(terms) + "." if terms else None
-        self._fix = make_fixer(yaml.safe_load((HERE / "replacements.yaml").read_text(encoding="utf-8")) or {})
+        self._fix = make_fixer(yaml.safe_load((HERE / "replacements.yaml").read_text(encoding="utf-8-sig")) or {})
 
     def transcribe(self, audio):
         """Corrected transcript. If the cloud fails, local Whisper transcribes instead, so nothing said is lost."""

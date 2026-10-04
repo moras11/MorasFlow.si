@@ -6,3 +6,5 @@ history.jsonl
 *.wav
 *.ico
 voiceflow/vocab.txt
+voiceflow/config.local.yaml
+*.stackdump

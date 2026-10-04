@@ -17,7 +17,7 @@ from cleaner import MODES, Cleaner, describe
 from paster import paste
 from recorder import SAMPLE_RATE, TAIL_SECONDS, Recorder
 from transcriber import Transcriber
-from tray import APP_NAME, Tray
+from tray import APP_NAME, VERSION, Tray
 
 HERE = Path(__file__).parent
 LOG_PATH = HERE / "voiceflow.log"
@@ -28,6 +28,20 @@ MASK_VK = 0xE8  # unassigned virtual key; the keyboard library reports it as sca
 log = logging.getLogger("voiceflow")
 busy = threading.Lock()
 failing = set()  # parts ("transcription", "cleanup") whose failure the user has already been told about
+
+
+def load_config():
+    """config.yaml (defaults, in git) with config.local.yaml (the user's changes, not in git) laid over it.
+    utf-8-sig: Notepad and others may save a byte-order mark, which would corrupt the first key."""
+    config = yaml.safe_load((HERE / "config.yaml").read_text(encoding="utf-8-sig"))
+    local = HERE / "config.local.yaml"
+    if local.exists():
+        for key, value in (yaml.safe_load(local.read_text(encoding="utf-8-sig")) or {}).items():
+            if isinstance(value, dict) and isinstance(config.get(key), dict):
+                config[key].update(value)  # one level deep: cleanup: {backend: ...} keeps cleanup's other keys
+            else:
+                config[key] = value
+    return config
 
 
 def setup_logging():
@@ -194,12 +208,12 @@ if __name__ == "__main__":
         fatal(f"{APP_NAME} is already running. Look for its icon in the system tray.")
     try:
         load_dotenv(HERE / ".env")
-        config = yaml.safe_load((HERE / "config.yaml").read_text(encoding="utf-8"))
+        config = load_config()
         history_path = HERE / config["history"]["path"]
         state = SimpleNamespace(mode=config["default_mode"], cleanup=config["cleanup"]["enabled"], paused=False)
         if state.mode not in MODES:  # caught here, not on every dictation
             raise RuntimeError(f"default_mode '{state.mode}' in config.yaml must be one of: {', '.join(MODES)}")
-        log.info("Starting, loading speech model")
+        log.info("Starting %s %s", APP_NAME, VERSION)
         t, c = config["transcription"], config["cleanup"]
         transcriber = Transcriber(t["backend"], t["model"], t["device"])
         cleaner = Cleaner(c["backend"], c["model"], c["timeout_seconds"])

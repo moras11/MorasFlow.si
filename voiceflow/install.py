@@ -1,21 +1,22 @@
-"""Run by setup.bat: build the desktop icon from config.yaml's `logo`, then (re)create the Desktop and Start menu
-shortcuts for wherever this folder lives. Safe to run again, e.g. after changing the logo."""
+"""Run by setup.bat: fetch the offline speech model, build the desktop icon from the configured `logo`, then
+(re)create the Desktop and Start menu shortcuts for wherever this folder lives. Safe to run again, e.g. after
+changing the logo."""
 import base64
 import hashlib
 import subprocess
 import sys
 from pathlib import Path
 
-import yaml
-
+from main import load_config
+from transcriber import DEFAULT_MODELS, load_whisper
 from tray import APP_NAME, logo
 
 HERE = Path(__file__).parent
 
 
-def build_icon():
+def build_icon(config):
     # Windows caches icons by file path, so the name carries a hash of the image: a new logo means a new path.
-    source = HERE / yaml.safe_load((HERE / "config.yaml").read_text(encoding="utf-8"))["logo"]
+    source = HERE / config["logo"]
     path = HERE / f"icon-{hashlib.sha1(source.read_bytes()).hexdigest()[:8]}.ico"
     for old in HERE.glob("*.ico"):
         old.unlink()
@@ -42,5 +43,11 @@ foreach ($folder in 'Desktop', 'Programs') {{
 
 
 if __name__ == "__main__":
-    create_shortcuts(build_icon())
+    config = load_config()
+    # Cloud transcription falls back to this model when there's no internet, which is exactly when it can't be
+    # downloaded, so fetch it now (once; a no-op when already cached).
+    model = config["transcription"].get("model") if config["transcription"]["backend"] == "local" else None
+    print(f"Checking the offline speech model (first time: a ~480 MB download)...")
+    load_whisper(model or DEFAULT_MODELS["local"], "cpu")
+    create_shortcuts(build_icon(config))
     print(f"Created {APP_NAME} shortcuts on the Desktop and in the Start menu.")

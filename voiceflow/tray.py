@@ -11,6 +11,7 @@ from PIL import Image, ImageDraw, ImageOps
 import history
 
 APP_NAME = "MorasFlow.si"
+VERSION = "1.1.0"  # also in CHANGELOG.md and the git tag
 HISTORY_TITLE = f"{APP_NAME} history"  # also how the tray finds an already-open history window
 COLOURS = {"idle": "#6b7280", "recording": "#dc2626", "processing": "#f59e0b"}  # grey, red, amber
 RECENT = 10  # dictations listed under "Copy recent dictation"
@@ -89,7 +90,7 @@ class Tray:
             pystray.Menu.SEPARATOR,
             item("Quit", lambda icon: icon.stop()),
         )
-        self.icon = pystray.Icon(APP_NAME, self._images["idle"], APP_NAME, menu)
+        self.icon = pystray.Icon(APP_NAME, self._images["idle"], f"{APP_NAME} {VERSION}", menu)
 
     def set_state(self, name):
         self.icon.icon = self._images[name]
