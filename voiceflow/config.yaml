@@ -1,0 +1,37 @@
+# MorasFlow.si settings. Restart the app after editing. API keys go in .env, never here.
+
+# Any image (cut to a circle; non-square images are centre-cropped), relative to this folder.
+# Bundled: logo.png (Moras's avatar) or logo-mic.png. After changing it, run setup.bat again for the desktop icon.
+logo: logo.png
+
+# ctrl+windows = hold Ctrl and the Win key. Any keyboard-library name works, e.g. ctrl+shift+space.
+hotkey: ctrl+windows
+mode: push_to_talk          # push_to_talk (hold to record) | toggle (press to start, press again to stop)
+
+transcription:
+  # groq: ~0.5 s per clip and more accurate, but audio goes to Groq; if it fails, local Whisper takes over.
+  # local: keeps audio on this laptop, ~2.8 s per 10 s clip.
+  backend: groq             # local | groq | openai
+  # Blank = backend default. groq: whisper-large-v3-turbo; openai: whisper-1;
+  # local: small.en or base.en (~1.1 s, less accurate)
+  model: whisper-large-v3-turbo
+  device: auto              # auto | cpu | cuda (local only)
+
+cleanup:
+  enabled: true
+  # groq has a free tier (no card) with daily limits; over the limit, the raw transcript is pasted.
+  backend: groq             # anthropic | openai | groq | ollama
+  # Blank = backend default. anthropic: claude-opus-5-5 (claude-haiku-4-5 is faster); openai: gpt-4.1-mini;
+  # groq: openai/gpt-oss-120b (or openai/gpt-oss-20b; Llama models aren't available on every Groq account);
+  # ollama: llama3.2
+  model: openai/gpt-oss-120b
+  timeout_seconds: 5
+
+default_mode: Default       # Default | Email | Slack/Teams | Notes | Raw
+
+history:
+  enabled: true
+  path: history.jsonl       # relative to this folder
+
+beeps:
+  enabled: true

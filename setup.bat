@@ -1,0 +1,41 @@
+@echo off
+rem MorasFlow.si one-time setup. Safe to run again (e.g. after changing the logo in voiceflow\config.yaml).
+cd /d "%~dp0"
+
+set PY=
+for %%v in (3.12 3.13 3.11) do if not defined PY py -%%v -c "" 2>nul && set PY=%%v
+if not defined PY (
+    echo Python 3.11, 3.12 or 3.13 is needed. Install Python 3.12 from https://www.python.org/downloads/
+    echo ^(keep the "py launcher" option ticked^), then run setup.bat again.
+    goto :failed
+)
+
+if not exist .venv\Scripts\python.exe (
+    echo Creating the Python environment with Python %PY%...
+    py -%PY% -m venv .venv || goto :failed
+)
+echo Installing packages (the first time takes a few minutes)...
+.venv\Scripts\python -m pip install --disable-pip-version-check -q -r voiceflow\requirements.txt || goto :failed
+
+if not exist voiceflow\vocab.txt copy voiceflow\vocab.example.txt voiceflow\vocab.txt >nul
+set NEW_ENV=
+if not exist voiceflow\.env (copy voiceflow\.env.example voiceflow\.env >nul & set NEW_ENV=1)
+
+.venv\Scripts\python voiceflow\install.py || goto :failed
+
+echo.
+echo Setup complete. Start MorasFlow.si from the Desktop or Start menu, then hold Ctrl+Win and speak.
+if defined NEW_ENV (
+    echo.
+    echo Last step: paste your free Groq API key ^(console.groq.com, API Keys^) after GROQ_API_KEY= in the
+    echo file that is opening now, then save it. Without a key it still works, just slower and without cleanup.
+    notepad voiceflow\.env
+)
+pause
+exit /b 0
+
+:failed
+echo.
+echo Setup did not finish; see the message above.
+pause
+exit /b 1

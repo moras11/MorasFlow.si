@@ -1,0 +1,5 @@
+# Fixes for words Whisper consistently gets wrong, as "wrong": "right".
+# Whole words or phrases, case-insensitive. Quote both sides. Restart the app after editing.
+"XG boost": "XGBoost"
+"ex-GeeBoost": "XGBoost"
+"PyTorch": "PyTorch"   # fixes any casing, e.g. Groq's "PYTorch"

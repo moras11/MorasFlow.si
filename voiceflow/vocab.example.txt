@@ -1,0 +1,11 @@
+# Names and terms Whisper should spell correctly, one per line (roughly 70 max).
+# setup.bat copies this to vocab.txt, which is yours to edit and stays off GitHub. Restart the app after editing.
+# Lines starting with # are ignored.
+SHAP
+XGBoost
+scikit-learn
+PyTorch
+TensorFlow
+Power BI
+Azure
+Groq
