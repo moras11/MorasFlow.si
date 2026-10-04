@@ -33,7 +33,9 @@ If you move the folder, run `setup.bat` again to fix the shortcuts.
 - **Hold Ctrl+Win, speak, release.** A high beep means recording started, a higher one means the text was pasted, and a low one means something failed. Taps under 0.3 s are ignored, and pressing any other key during the hold cancels (so Windows shortcuts like Ctrl+Win+Left still work).
 - **Tray icon**: a grey ring when idle, red while recording, amber while processing. Right-click it for:
   - **Modes**: Default (clean up), Email (short professional email body), Slack/Teams (casual, no greetings or sign-offs), Notes (bullet points), Raw (exactly what you said, fastest)
-  - **Cleanup** on/off, **Pause listening** (also releases the mic), **Open config folder**, **Open history**, **Quit**
+  - **Copy recent dictation**: your last 10, newest first; click one to copy it (handy when the cursor was in the wrong place)
+  - **Open history**: every dictation in your browser, grouped by day and searchable, each with a Copy button (and the original wording when cleanup changed it)
+  - **Cleanup** on/off, **Pause listening** (also releases the mic), **Open config folder**, **Quit**
 - If something fails (no internet, Groq down, an invalid key) you get one notification saying what happened, not one per dictation.
 - Your clipboard is restored after each paste (text only: a copied image or file is lost).
 

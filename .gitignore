@@ -6,3 +6,4 @@ history.jsonl
 *.wav
 *.ico
 voiceflow/vocab.txt
+history.html

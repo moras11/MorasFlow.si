@@ -1,11 +1,9 @@
 import ctypes
-import json
 import logging
 import sys
 import threading
 import time
 import winsound
-from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,6 +12,7 @@ import keyboard
 import yaml
 from dotenv import load_dotenv
 
+import history
 from cleaner import MODES, Cleaner
 from paster import paste
 from recorder import SAMPLE_RATE, TAIL_SECONDS, Recorder
@@ -105,12 +104,6 @@ def report(part, error, consequence):
         tray.notify(f"{consequence}: {describe(error)}"[:250])
 
 
-def save_history(mode, raw, text, latency_ms):
-    with history_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps({"timestamp": datetime.now().isoformat(timespec="seconds"), "mode": mode, "raw": raw,
-                            "cleaned": text, "latency_ms": latency_ms}, ensure_ascii=False) + "\n")
-
-
 def dictate():
     # Another key pressed while the hotkey is held means a shortcut (Ctrl+Win+Left), not dictation: cancel.
     cancelled = threading.Event()
@@ -151,7 +144,8 @@ def dictate():
         # Dictated text goes to history.jsonl (if enabled), never to the log.
         log.info("Pasted %d chars: %.1fs audio, %s mode, %d ms release to paste", len(text), seconds, mode, latency_ms)
         if config["history"]["enabled"]:
-            save_history(mode, raw, text, latency_ms)
+            history.save(history_path, mode, raw, text, latency_ms)
+            tray.refresh()  # so "Recent dictations" includes this one
     except Exception:
         log.exception("Dictation failed")
         beep("error")

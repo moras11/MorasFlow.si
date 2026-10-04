@@ -1,11 +1,21 @@
 import os
-import subprocess
 
+import pyperclip
 import pystray
 from PIL import Image, ImageDraw, ImageOps
 
+import history
+
 APP_NAME = "MorasFlow.si"
 COLOURS = {"idle": "#6b7280", "recording": "#dc2626", "processing": "#f59e0b"}  # grey, red, amber
+RECENT = 10  # dictations listed under "Copy recent dictation"
+
+
+def preview(text, width=60):
+    """One menu line: whitespace collapsed, shortened, and & doubled (Windows menus treat & as a shortcut key)."""
+    text = " ".join(text.split())
+    text = text if len(text) <= width else text[:width - 3].rstrip() + "..."
+    return text.replace("&", "&&")
 
 
 def logo(path, ring=None, size=256):
@@ -35,19 +45,25 @@ class Tray:
             state.paused = not state.paused
             on_pause(state.paused)
 
-        def open_history():
-            history_path.touch(exist_ok=True)
-            subprocess.Popen(["notepad", str(history_path)])  # .jsonl has no default app on Windows
-
         item = pystray.MenuItem
+
+        def recent():
+            """Rebuilt by refresh() after each dictation: newest first, click to copy."""
+            entries = history.read(history_path)[-RECENT:][::-1]
+            # A factory, not a default argument: pystray passes the icon to callbacks that take one.
+            copier = lambda text: lambda: pyperclip.copy(text)
+            return [item(preview(e["cleaned"]), copier(e["cleaned"])) for e in entries] or \
+                [item("No dictations yet", None, enabled=False)]
+
         menu = pystray.Menu(
             *[item(m, set_mode, checked=lambda i: state.mode == i.text, radio=True) for m in modes],
             pystray.Menu.SEPARATOR,
             item("Cleanup", toggle_cleanup, checked=lambda _: state.cleanup),
             item("Pause listening", toggle_pause, checked=lambda _: state.paused),
             pystray.Menu.SEPARATOR,
+            item("Copy recent dictation", pystray.Menu(recent)),
+            item("Open history", lambda: history.open_page(history_path)),
             item("Open config folder", lambda: os.startfile(folder)),
-            item("Open history", open_history),
             pystray.Menu.SEPARATOR,
             item("Quit", lambda icon: icon.stop()),
         )
@@ -55,6 +71,9 @@ class Tray:
 
     def set_state(self, name):
         self.icon.icon = self._images[name]
+
+    def refresh(self):
+        self.icon.update_menu()  # Windows builds the menu ahead of time; this re-reads recent dictations
 
     def notify(self, message):
         self.icon.notify(message, APP_NAME)
