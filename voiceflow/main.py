@@ -167,7 +167,7 @@ def dictate():
         latency_ms = round((time.perf_counter() - released) * 1000)
         beep("paste")
         target, held = foreground_app(), held_keys()  # captured just before Ctrl+V is sent
-        stale = paste(text)
+        stale = paste(text, target)
         focus = app_at_press if app_at_press == app_at_release else f"{app_at_press} -> {app_at_release}"
         # Dictated text goes to history.jsonl (if enabled), never to the log.
         log.info("Pasted %d chars into %s (held: %s, stale in target: %s, focus during hold: %s): "
