@@ -63,6 +63,8 @@ class Tray:
                 subprocess.Popen([str(Path(sys.executable).with_name("pythonw.exe")),
                                   str(Path(__file__).with_name("history_window.py")), str(history_path), str(logo_path)])
 
+        self.open_history = open_history  # also used at startup (config: history.open_on_start)
+
         def recent():
             """Rebuilt by refresh() after each dictation: newest first, click to copy."""
             entries = history.read(history_path)[-RECENT:][::-1]

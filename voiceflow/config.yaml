@@ -32,6 +32,7 @@ default_mode: Default       # Default | Email | Slack/Teams | Notes | Raw
 history:
   enabled: true
   path: history.jsonl       # relative to this folder
+  open_on_start: true       # open the live history window when the app starts
 
 beeps:
   enabled: true

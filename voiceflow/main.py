@@ -87,6 +87,28 @@ def until_pressed_again():
     return keep_going
 
 
+def paste_target():
+    """Diagnostics for missed pastes: which app gets Ctrl+V, and which modifier keys are still physically held.
+    Never raises: a diagnostic must not cost the user their dictation."""
+    try:
+        return _paste_target()
+    except Exception as e:
+        return f"unknown ({e!r})"
+
+
+def _paste_target():
+    user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
+    pid = ctypes.c_ulong()
+    user32.GetWindowThreadProcessId(user32.GetForegroundWindow(), ctypes.byref(pid))
+    name, size = ctypes.create_unicode_buffer(260), ctypes.c_ulong(260)
+    process = kernel32.OpenProcess(0x1000, False, pid.value)  # PROCESS_QUERY_LIMITED_INFORMATION
+    ok = process and kernel32.QueryFullProcessImageNameW(process, 0, name, ctypes.byref(size))
+    if process:
+        kernel32.CloseHandle(process)
+    held = [k for k in ("ctrl", "shift", "alt", "windows") if keyboard.is_pressed(k)]
+    return f"{Path(name.value).name if ok else 'unknown app'}, held: {'+'.join(held) or 'none'}"
+
+
 def describe(error):
     """The API's own message where there is one: the SDKs' str() includes raw JSON."""
     body = getattr(error, "body", None)
@@ -140,9 +162,11 @@ def dictate():
             return
         latency_ms = round((time.perf_counter() - released) * 1000)
         beep("paste")
+        target = paste_target()  # captured just before Ctrl+V is sent
         paste(text)
         # Dictated text goes to history.jsonl (if enabled), never to the log.
-        log.info("Pasted %d chars: %.1fs audio, %s mode, %d ms release to paste", len(text), seconds, mode, latency_ms)
+        log.info("Pasted %d chars into %s: %.1fs audio, %s mode, %d ms release to paste",
+                 len(text), target, seconds, mode, latency_ms)
         if config["history"]["enabled"]:
             history.save(history_path, mode, raw, text, latency_ms)
             tray.refresh()  # so "Recent dictations" includes this one
@@ -198,6 +222,8 @@ if __name__ == "__main__":
                  recorder.device_name, transcriber.backend, transcriber.model,
                  cleaner.disabled_reason or f"{cleaner.backend} / {cleaner.model}",
                  "hold" if config["mode"] == "push_to_talk" else "press", config["hotkey"])
+        if config["history"].get("open_on_start"):
+            tray.open_history()
         if notices:
             log.warning(" ".join(notices))
         # pythonw has no window and Windows 11 hides new tray icons, so confirm we're running.
