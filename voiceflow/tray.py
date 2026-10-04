@@ -1,4 +1,8 @@
+import ctypes
 import os
+import subprocess
+import sys
+from pathlib import Path
 
 import pyperclip
 import pystray
@@ -7,6 +11,7 @@ from PIL import Image, ImageDraw, ImageOps
 import history
 
 APP_NAME = "MorasFlow.si"
+HISTORY_TITLE = f"{APP_NAME} history"  # also how the tray finds an already-open history window
 COLOURS = {"idle": "#6b7280", "recording": "#dc2626", "processing": "#f59e0b"}  # grey, red, amber
 RECENT = 10  # dictations listed under "Copy recent dictation"
 
@@ -47,6 +52,17 @@ class Tray:
 
         item = pystray.MenuItem
 
+        def open_history():
+            """One live window: bring it to the front if it's open, otherwise start it as its own process."""
+            user32 = ctypes.windll.user32
+            hwnd = user32.FindWindowW(None, HISTORY_TITLE)
+            if hwnd:
+                user32.ShowWindow(hwnd, 9)  # SW_RESTORE, in case it's minimised
+                user32.SetForegroundWindow(hwnd)
+            else:
+                subprocess.Popen([str(Path(sys.executable).with_name("pythonw.exe")),
+                                  str(Path(__file__).with_name("history_window.py")), str(history_path), str(logo_path)])
+
         def recent():
             """Rebuilt by refresh() after each dictation: newest first, click to copy."""
             entries = history.read(history_path)[-RECENT:][::-1]
@@ -62,7 +78,7 @@ class Tray:
             item("Pause listening", toggle_pause, checked=lambda _: state.paused),
             pystray.Menu.SEPARATOR,
             item("Copy recent dictation", pystray.Menu(recent)),
-            item("Open history", lambda: history.open_page(history_path)),
+            item("Open history", open_history),
             item("Open config folder", lambda: os.startfile(folder)),
             pystray.Menu.SEPARATOR,
             item("Quit", lambda icon: icon.stop()),
