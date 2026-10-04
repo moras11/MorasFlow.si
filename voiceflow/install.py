@@ -25,7 +25,7 @@ def build_icon():
 
 def create_shortcuts(icon):
     quote = lambda s: "'" + str(s).replace("'", "''") + "'"  # PowerShell single-quoted string
-    script = f"""
+    script = f"""$ProgressPreference = 'SilentlyContinue'
 $shell = New-Object -ComObject WScript.Shell
 foreach ($folder in 'Desktop', 'Programs') {{
     $s = $shell.CreateShortcut([Environment]::GetFolderPath($folder) + '\\{APP_NAME}.lnk')
