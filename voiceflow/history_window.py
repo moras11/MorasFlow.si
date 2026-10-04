@@ -85,7 +85,8 @@ class HistoryWindow:
         top.pack(fill="x")
         ttk.Label(top, text="Search").pack(side="left")
         self.search = tk.StringVar()
-        self.search.trace_add("write", lambda *_: self.render())
+        self._search_job = None
+        self.search.trace_add("write", lambda *_: self.search_soon())
         entry = ttk.Entry(top, textvariable=self.search)
         entry.pack(side="left", fill="x", expand=True, padx=8)
         self.count = ttk.Label(top, foreground=c["muted"])
@@ -144,16 +145,24 @@ class HistoryWindow:
     def poll(self):
         """Reload when history.jsonl changes (a stat once a second is all this costs while idle)."""
         try:
-            stat = self.path.stat()
-            stamp = (stat.st_mtime_ns, stat.st_size)
-        except FileNotFoundError:
-            stamp = None
-        if stamp != self.stamp:
-            # Follow new dictations unless the user has picked an older one to look at.
-            follow = self.selected() in (None, len(self.entries) - 1)
-            self.stamp, self.entries = stamp, history.read(self.path)
-            self.render(follow_newest=follow)
-        self.root.after(1000, self.poll)
+            try:
+                stat = self.path.stat()
+                stamp = (stat.st_mtime_ns, stat.st_size)
+            except FileNotFoundError:
+                stamp = None
+            if stamp != self.stamp:
+                # Follow new dictations unless the user has picked an older one to look at.
+                follow = self.selected() in (None, len(self.entries) - 1)
+                self.stamp, self.entries = stamp, history.read(self.path)
+                self.render(follow_newest=follow)
+        finally:
+            self.root.after(1000, self.poll)  # one failed reload must not stop live updates for good
+
+    def search_soon(self):
+        """Re-render once typing pauses: a long history makes each render take a moment."""
+        if self._search_job:
+            self.root.after_cancel(self._search_job)
+        self._search_job = self.root.after(200, self.render)
 
     def render(self, follow_newest=False):
         q = self.search.get().strip().lower()

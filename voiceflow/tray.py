@@ -67,7 +67,7 @@ class Tray:
 
         def recent():
             """Rebuilt by refresh() after each dictation: newest first, click to copy."""
-            entries = history.read(history_path)[-RECENT:][::-1]
+            entries = history.read(history_path, last=RECENT)[::-1]
             # A factory, not a default argument: pystray passes the icon to callbacks that take one.
             copier = lambda text: lambda: pyperclip.copy(text)
             return [item(preview(e["cleaned"]), copier(e["cleaned"])) for e in entries] or \

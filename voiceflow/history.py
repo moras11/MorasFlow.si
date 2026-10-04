@@ -1,5 +1,6 @@
 """Dictation history: history.jsonl, one JSON object per line."""
 import json
+from collections import deque
 from datetime import datetime
 
 
@@ -9,14 +10,21 @@ def save(path, mode, raw, text, latency_ms):
                             "cleaned": text, "latency_ms": latency_ms}, ensure_ascii=False) + "\n")
 
 
-def read(path):
-    """All entries, oldest first. Unreadable lines are skipped rather than hiding the rest."""
+def read(path, last=None):
+    """Entries, oldest first (only the `last` lines if given, so the tray stays fast on a big file).
+    Lines that aren't a complete dictation (a torn write after a power cut, a hand edit, a stray byte) are skipped:
+    the tray menu and history window index these fields, so one bad line must not take them down."""
     if not path.exists():
         return []
+    with path.open(encoding="utf-8", errors="replace") as f:
+        lines = deque(f, maxlen=last) if last else f.read().splitlines()
     entries = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in lines:
         try:
-            entries.append(json.loads(line))
-        except ValueError:
+            e = json.loads(line)
+            datetime.fromisoformat(e["timestamp"])
+            if isinstance(e["cleaned"], str) and isinstance(e.get("raw", ""), str):
+                entries.append(e)
+        except (ValueError, KeyError, TypeError):
             pass
     return entries
