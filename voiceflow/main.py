@@ -87,26 +87,28 @@ def until_pressed_again():
     return keep_going
 
 
-def paste_target():
-    """Diagnostics for missed pastes: which app gets Ctrl+V, and which modifier keys are still physically held.
-    Never raises: a diagnostic must not cost the user their dictation."""
+def foreground_app():
+    """Exe name of the active window, for diagnosing missed pastes. Never raises: a diagnostic must not cost
+    the user their dictation."""
     try:
-        return _paste_target()
+        user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
+        pid = ctypes.c_ulong()
+        user32.GetWindowThreadProcessId(user32.GetForegroundWindow(), ctypes.byref(pid))
+        name, size = ctypes.create_unicode_buffer(260), ctypes.c_ulong(260)
+        process = kernel32.OpenProcess(0x1000, False, pid.value)  # PROCESS_QUERY_LIMITED_INFORMATION
+        ok = process and kernel32.QueryFullProcessImageNameW(process, 0, name, ctypes.byref(size))
+        if process:
+            kernel32.CloseHandle(process)
+        return Path(name.value).name if ok else "unknown app"
     except Exception as e:
         return f"unknown ({e!r})"
 
 
-def _paste_target():
-    user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
-    pid = ctypes.c_ulong()
-    user32.GetWindowThreadProcessId(user32.GetForegroundWindow(), ctypes.byref(pid))
-    name, size = ctypes.create_unicode_buffer(260), ctypes.c_ulong(260)
-    process = kernel32.OpenProcess(0x1000, False, pid.value)  # PROCESS_QUERY_LIMITED_INFORMATION
-    ok = process and kernel32.QueryFullProcessImageNameW(process, 0, name, ctypes.byref(size))
-    if process:
-        kernel32.CloseHandle(process)
-    held = [k for k in ("ctrl", "shift", "alt", "windows") if keyboard.is_pressed(k)]
-    return f"{Path(name.value).name if ok else 'unknown app'}, held: {'+'.join(held) or 'none'}"
+def held_keys():
+    try:
+        return "+".join(k for k in ("ctrl", "shift", "alt", "windows") if keyboard.is_pressed(k)) or "none"
+    except Exception as e:
+        return f"unknown ({e!r})"
 
 
 def describe(error):
@@ -139,10 +141,12 @@ def dictate():
         beep("start")
         hold = until_pressed_again() if config["mode"] == "toggle" else lambda: keyboard.is_pressed(config["hotkey"])
         hook = keyboard.hook(watch)
+        app_at_press = foreground_app()  # if focus moves mid-hold, the target may miss the hotkey's key-ups
         try:
             audio = recorder.record(lambda: hold() and not cancelled.is_set())
         finally:
             keyboard.unhook(hook)
+        app_at_release = foreground_app()
         if cancelled.is_set():
             log.info("Cancelled: another key was pressed with the hotkey")
             return
@@ -162,11 +166,13 @@ def dictate():
             return
         latency_ms = round((time.perf_counter() - released) * 1000)
         beep("paste")
-        target = paste_target()  # captured just before Ctrl+V is sent
-        paste(text)
+        target, held = foreground_app(), held_keys()  # captured just before Ctrl+V is sent
+        stale = paste(text)
+        focus = app_at_press if app_at_press == app_at_release else f"{app_at_press} -> {app_at_release}"
         # Dictated text goes to history.jsonl (if enabled), never to the log.
-        log.info("Pasted %d chars into %s: %.1fs audio, %s mode, %d ms release to paste",
-                 len(text), target, seconds, mode, latency_ms)
+        log.info("Pasted %d chars into %s (held: %s, stale in target: %s, focus during hold: %s): "
+                 "%.1fs audio, %s mode, %d ms release to paste", len(text), target, held,
+                 "+".join(stale) or "none", focus, seconds, mode, latency_ms)
         if config["history"]["enabled"]:
             history.save(history_path, mode, raw, text, latency_ms)
             tray.refresh()  # so "Recent dictations" includes this one
