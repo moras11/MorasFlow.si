@@ -34,7 +34,7 @@ If you move the folder, run `setup.bat` again to fix the shortcuts.
 - **Tray icon**: a grey ring when idle, red while recording, amber while processing. Right-click it for:
   - **Modes**: Default (clean up), Email (short professional email body), Slack/Teams (casual, no greetings or sign-offs), Notes (bullet points), Raw (exactly what you said, fastest)
   - **Copy recent dictation**: your last 10, newest first; click one to copy it (handy when the cursor was in the wrong place)
-  - **Open history**: a window with every dictation, newest first and grouped by day, that updates live as you dictate. Search as you type; click one to read it in full, then **Copy** (or double-click). **Copy original** gives your exact words when cleanup changed them. Clicking it again brings the open window to the front
+  - **Open history**: a window with every dictation, newest first and grouped by day, that updates live as you dictate. Search as you type; click one to read it in full, then **Copy** (or double-click). **Copy original** gives your exact words when cleanup changed them. Follows Windows light or dark mode. Clicking it again brings the open window to the front
   - **Cleanup** on/off, **Pause listening** (also releases the mic), **Open config folder**, **Quit**
 - If something fails (no internet, Groq down, an invalid key) you get one notification saying what happened, not one per dictation.
 - Your clipboard is restored after each paste (text only: a copied image or file is lost).

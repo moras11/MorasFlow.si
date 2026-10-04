@@ -6,6 +6,7 @@ Usage: history_window.py <history.jsonl> <logo image>
 import ctypes
 import sys
 import tkinter as tk
+import winreg
 from datetime import date, datetime
 from pathlib import Path
 from tkinter import font, ttk
@@ -15,6 +16,45 @@ from PIL import ImageTk
 
 import history
 from tray import HISTORY_TITLE, logo
+
+LIGHT = {"muted": "#6b7280", "ok": "#16a34a", "line": "#d1d5db"}  # the rest is the native Windows look
+DARK = {"muted": "#9aa3ad", "ok": "#4ade80", "line": "#373e47",
+        "bg": "#1b1f24", "field": "#22272e", "text": "#e6e8eb", "hover": "#2d333b", "select": "#15803d"}
+
+
+def dark_mode():
+    """Windows' app mode (Settings > Personalisation > Colours)."""
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize") as key:
+            return winreg.QueryValueEx(key, "AppsUseLightTheme")[0] == 0
+    except OSError:
+        return False
+
+
+def style_dark(root, style):
+    """The native ("vista") theme can't be recoloured, so dark mode uses "clam" with our palette."""
+    c = DARK
+    style.theme_use("clam")
+    style.configure(".", background=c["bg"], foreground=c["text"], fieldbackground=c["field"],
+                    bordercolor=c["line"], lightcolor=c["bg"], darkcolor=c["bg"], troughcolor=c["bg"],
+                    focuscolor=c["line"], insertcolor=c["text"], selectbackground=c["select"],
+                    selectforeground="#ffffff")
+    style.configure("Treeview", background=c["field"], fieldbackground=c["field"], foreground=c["text"])
+    style.map("Treeview", background=[("selected", c["select"])], foreground=[("selected", "#ffffff")])
+    style.configure("Treeview.Heading", background=c["bg"], foreground=c["muted"], relief="flat")
+    style.map("Treeview.Heading", background=[("active", c["hover"])])
+    style.configure("TButton", background=c["field"], padding=(12, 4))
+    style.map("TButton", background=[("active", c["hover"]), ("disabled", c["bg"])],
+              foreground=[("disabled", c["muted"])])
+    style.configure("TScrollbar", background=c["field"], arrowcolor=c["muted"], bordercolor=c["bg"])
+    style.map("TScrollbar", background=[("active", c["hover"])])
+    root.configure(background=c["bg"])
+    root.update_idletasks()
+    hwnd = int(root.wm_frame(), 16)
+    for attribute in (20, 19):  # DWMWA_USE_IMMERSIVE_DARK_MODE (19 on older Windows 10 builds): dark title bar
+        if not ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, attribute, ctypes.byref(ctypes.c_int(1)), 4):
+            break
 
 
 def when(timestamp):
@@ -36,6 +76,9 @@ class HistoryWindow:
             font.nametofont(name).configure(family="Segoe UI", size=10)
         line = font.nametofont("TkDefaultFont").metrics("linespace")
         style = ttk.Style()
+        c = DARK if dark_mode() else LIGHT
+        if c is DARK:
+            style_dark(root, style)
         style.configure("Treeview", rowheight=int(line * 1.7))  # Tk doesn't scale row height with the display
 
         top = ttk.Frame(root, padding=(12, 12, 12, 6))
@@ -45,7 +88,7 @@ class HistoryWindow:
         self.search.trace_add("write", lambda *_: self.render())
         entry = ttk.Entry(top, textvariable=self.search)
         entry.pack(side="left", fill="x", expand=True, padx=8)
-        self.count = ttk.Label(top, foreground="#6b7280")
+        self.count = ttk.Label(top, foreground=c["muted"])
         self.count.pack(side="right")
 
         panes = ttk.PanedWindow(root, orient="vertical")
@@ -65,8 +108,10 @@ class HistoryWindow:
 
         reading = ttk.Frame(panes)
         self.detail = tk.Text(reading, wrap="word", height=8, font=("Segoe UI", 11), relief="flat",
-                              padx=10, pady=8, borderwidth=0, highlightthickness=1, highlightcolor="#d1d5db")
-        self.detail.tag_configure("muted", foreground="#6b7280", font=("Segoe UI", 10))
+                              padx=10, pady=8, borderwidth=0, highlightthickness=1, highlightcolor=c["line"],
+                              highlightbackground=c["line"], background=c.get("field", "white"),
+                              foreground=c.get("text", "black"), insertbackground=c.get("text", "black"))
+        self.detail.tag_configure("muted", foreground=c["muted"], font=("Segoe UI", 10))
         detail_scroll = ttk.Scrollbar(reading, command=self.detail.yview)
         self.detail.configure(yscrollcommand=detail_scroll.set)
         self.detail.pack(side="left", fill="both", expand=True)
@@ -79,10 +124,10 @@ class HistoryWindow:
         self.copy_button.pack(side="left")
         self.copy_raw_button = ttk.Button(bottom, text="Copy original", command=lambda: self.copy("raw"))
         self.copy_raw_button.pack(side="left", padx=8)
-        self.status = ttk.Label(bottom, foreground="#16a34a")
+        self.status = ttk.Label(bottom, foreground=c["ok"])
         self.status.pack(side="left", padx=4)
         ttk.Label(bottom, text="Double-click or Enter copies  ·  Ctrl+F searches  ·  Updates live",
-                  foreground="#6b7280").pack(side="right")
+                  foreground=c["muted"]).pack(side="right")
 
         self.tree.bind("<<TreeviewSelect>>", lambda _: self.show())
         self.tree.bind("<Double-1>", lambda _: self.copy("cleaned"))
